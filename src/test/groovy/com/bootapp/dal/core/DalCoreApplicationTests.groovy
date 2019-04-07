@@ -9,6 +9,6 @@ import spock.lang.Title
 
 @Title("account test")
 @RunWith(Suite.class)
-@Suite.SuiteClasses([UserServiceTest])
+@Suite.SuiteClasses([])
 class DalCoreApplicationTests extends Specification {
 }
