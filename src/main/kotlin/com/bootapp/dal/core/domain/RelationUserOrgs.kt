@@ -13,6 +13,7 @@ data class RelationUserOrgs (
         var user_id: Long,
         @Column(nullable = false)
         var org_id: Long,
+        var status: Int? = null,
         var createAt: Long,
         var updateAt: Long
 )

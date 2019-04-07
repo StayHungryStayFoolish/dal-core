@@ -42,7 +42,7 @@ class UserService(@Autowired
                 //------------ fill other data
                 dbUser.fromProto(request)
                 if (request.password != "") {
-                    dbUser.password_hash = BCrypt.hashpw(request.password, BCrypt.gensalt())
+                    dbUser.passwordHash = BCrypt.hashpw(request.password, BCrypt.gensalt())
                 }
                 //------------ fill information
                 userRepository.save(dbUser)
@@ -66,7 +66,7 @@ class UserService(@Autowired
             if (dbUser != null) {
                 dbUser.fromProto(request)
                 if (request.password != "") {
-                    dbUser.password_hash = BCrypt.hashpw(request.password, BCrypt.gensalt())
+                    dbUser.passwordHash = BCrypt.hashpw(request.password, BCrypt.gensalt())
                 }
                 resp.status = User.UserServiceType.USER_UPDATE_STATUS_SUCCESS
                 resp.user = dbUser.toProto()
@@ -99,7 +99,7 @@ class UserService(@Autowired
             }
 
             val res = userRepository.findOne(queryExpressions!!).get()
-            if (request?.user?.password == "" || BCrypt.checkpw(request?.user?.password, res.password_hash)) {
+            if (request?.user?.password == "" || BCrypt.checkpw(request?.user?.password, res.passwordHash)) {
                 resp.status = User.UserServiceType.USER_QUERY_STATUS_SUCCESS
                 resp.user = res.toProto()
             } else {

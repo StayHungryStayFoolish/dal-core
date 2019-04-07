@@ -28,7 +28,7 @@ data class User (
     @Column(length = VARCHAR_NORMAL, unique = true)
     var username: String? = null,
     @Column(length = VARCHAR_PASSWORD_HASH)
-    var password_hash: String? = null
+    var passwordHash: String? = null
 ) {
     fun toProto() :User.UserInfo {
         val proto = User.UserInfo.newBuilder()

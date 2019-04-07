@@ -1,0 +1,2 @@
+id;status;user_role_id;phone;email;username;password_hash;create_at;update_at
+1;1;0;"+86-13800138000";"admin@bootapp.com";"admin";"";0;0

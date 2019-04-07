@@ -2,16 +2,39 @@ package com.bootapp.dal.core.service
 
 import com.bootapp.dal.core.grpc.User
 import com.bootapp.dal.core.grpc.UserServiceGrpc
-import io.grpc.ManagedChannel
-import io.grpc.ManagedChannelBuilder
-import org.springframework.boot.test.context.SpringBootTest
+import com.bootapp.dal.core.repository.IDGenInstanceRepository
+import com.bootapp.dal.core.repository.UserRepository
+import com.bootapp.dal.core.utils.idgen.impl.SnowFlakeGenerator
+import io.grpc.inprocess.InProcessChannelBuilder
+import io.grpc.inprocess.InProcessServerBuilder
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
+import org.springframework.transaction.annotation.Propagation
+import org.springframework.transaction.annotation.Transactional
+import spock.lang.Shared
 import spock.lang.Specification
 
-@SpringBootTest
+import javax.annotation.Resource
+
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
+@DataJpaTest
 class UserServiceTest extends Specification {
-    ManagedChannel channel = ((ManagedChannelBuilder)ManagedChannelBuilder.
-            forAddress("localhost", 9090).usePlaintext()).build()
-    UserServiceGrpc.UserServiceBlockingStub blockingStub = UserServiceGrpc.newBlockingStub(channel)
+    String serverName = InProcessServerBuilder.generateName()
+    @Resource
+    private UserRepository userRepository
+    @Resource
+    private IDGenInstanceRepository repository
+    @Shared
+    boolean sharedSetupDone = false
+    @Shared
+    UserServiceGrpc.UserServiceBlockingStub blockingStub
+    def setup() {
+        if (!sharedSetupDone) {
+            InProcessServerBuilder.forName(serverName).directExecutor().addService(new UserService(userRepository, new SnowFlakeGenerator(repository))).build().start()
+            def channel = InProcessChannelBuilder.forName(serverName).directExecutor().build()
+            blockingStub = UserServiceGrpc.newBlockingStub(channel)
+            sharedSetupDone = true
+        }
+    }
     def "basic creation of a user"() {
         given: "create a user"
         def user = User.UserInfo.newBuilder().build()
@@ -26,11 +49,8 @@ class UserServiceTest extends Specification {
         when:
         def userCreateResp = blockingStub.invokeNewUser(userReq)
         then:
-        if(isSuccess) {
-            userCreateResp.status == User.UserServiceType.USER_CREATE_STATUS_SUCCESS
-        } else {
-            userCreateResp.status == User.UserServiceType.USER_CREATE_STATUS_FAIL
-        }
+        (isSuccess && userCreateResp.status == User.UserServiceType.USER_CREATE_STATUS_SUCCESS) ||
+                (!isSuccess && userCreateResp.status == User.UserServiceType.USER_CREATE_STATUS_FAIL)
         where: "a user with same username|email|phone couldn't be created twice"
         userReq                                               || isSuccess
         getUserInfo("a0",null,null,"Abcd1234")                || true
@@ -46,8 +66,8 @@ class UserServiceTest extends Specification {
         def userCreateResp = blockingStub.invokeNewUser(user)
         def userResp = blockingStub.queryUser(User.UserQueryReq.newBuilder().setUser(userReq).build())
         then: "the result user's id should be the same"
-        userResp.status == User.UserServiceType.USER_QUERY_STATUS_SUCCESS
-        userResp.user.id == userCreateResp.user.id
+        userResp.status == User.UserServiceType.USER_QUERY_STATUS_SUCCESS &&
+                userResp.user.id == userCreateResp.user.id
         where:
         user | userReq
         getUserInfo("b0",null,null,null) | getUserInfo("b0",null,null,null)
@@ -60,25 +80,24 @@ class UserServiceTest extends Specification {
         def userCreateResp = blockingStub.invokeNewUser(user)
         def userResp = blockingStub.queryUser(User.UserQueryReq.newBuilder().setUser(userReq).build())
         then:
-        if(isSuccess) {
-            (userResp.status == User.UserServiceType.USER_QUERY_STATUS_SUCCESS && userResp.user.id == userCreateResp.user.id)
-        } else {
-            userResp.status == User.UserServiceType.USER_QUERY_STATUS_WRONG_PASS
-        }
+        (type == 1 && userResp.status == User.UserServiceType.USER_QUERY_STATUS_SUCCESS) ||
+                (type == 2 && userResp.status == User.UserServiceType.USER_QUERY_STATUS_WRONG_PASS) ||
+                (type == 3 && userResp.status == User.UserServiceType.USER_QUERY_STATUS_FAIL)
         where: "be able to test password, and be able to login by username|email|phone"
-        user                                                  | userReq || isSuccess
-        getUserInfo("c0",null,null,"Abcd1234")                | getUserInfo("c0",null,null,"Abcd1234") || true
-        getUserInfo(null, null, null, null)                   | getUserInfo("c0", null, null, "Abcd12342")||false
-        getUserInfo(null, "c2@test.com", null, "Abcd1234")    | getUserInfo(null, "c2@test.com", null, "Abcd1234") || true
-        getUserInfo(null, null, null, null)                   | getUserInfo(null, "c2@test.com", null, "Abcd12342")|| false
-        getUserInfo(null, null, "+3-13800138000", "Abcd1234") | getUserInfo(null, null, "+3-13800138000", "Abcd1234") || true
-        getUserInfo(null, null, null, null)                   | getUserInfo(null, null, "+3-13800138000", "Abcd12342") || false
-        getUserInfo(null, null, null, null) | getUserInfo("c0", "c0", "c0", "Abcd1234") || true
-        getUserInfo(null, null, null, null) | getUserInfo("c0", "c0", "c0", "Abcd12324") || false
-        getUserInfo(null, null, null, null) | getUserInfo("c2@test.com", "c2@test.com", "c2@test.com", "Abcd1234") || true
-        getUserInfo(null, null, null, null) | getUserInfo("c2@test.com", "c2@test.com", "c2@test.com", "Abcd12324") || false
-        getUserInfo(null, null, null, null) | getUserInfo("+3-13800138000", "+3-13800138000", "+3-13800138000", "Abcd1234") || true
-        getUserInfo(null, null, null, null) | getUserInfo("+3-13800138000", "+3-13800138000", "+3-13800138000", "Abcd12324") || false
+        user                                                  | userReq || type
+        getUserInfo("c0",null,null,"Abcd1234")                | getUserInfo("c0",null,null,"Abcd1234") || 1
+        getUserInfo(null, null, null, null)                   | getUserInfo("c0", null, null, "Abcd12342")||2
+        getUserInfo(null, "c2@test.com", null, "Abcd1234")    | getUserInfo(null, "c2@test.com", null, "Abcd1234") || 1
+        getUserInfo(null, null, null, null)                   | getUserInfo(null, "c2@test.com", null, "Abcd12342")|| 2
+        getUserInfo(null, null, "+3-13800138000", "Abcd1234") | getUserInfo(null, null, "+3-13800138000", "Abcd1234") || 1
+        getUserInfo(null, null, null, null)                   | getUserInfo(null, null, "+3-13800138000", "Abcd12342") || 2
+        getUserInfo(null, null, null, null) | getUserInfo("c0", "c0", "c0", "Abcd1234") || 1
+        getUserInfo(null, null, null, null) | getUserInfo("c0", "c0", "c0", "Abcd12324") || 2
+        getUserInfo(null, null, null, null) | getUserInfo("c2@test.com", "c2@test.com", "c2@test.com", "Abcd1234") || 1
+        getUserInfo(null, null, null, null) | getUserInfo("c2@test.com", "c2@test.com", "c2@test.com", "Abcd12324") || 2
+        getUserInfo(null, null, null, null) | getUserInfo("+3-13800138000", "+3-13800138000", "+3-13800138000", "Abcd1234") || 1
+        getUserInfo(null, null, null, null) | getUserInfo("+3-13800138000", "+3-13800138000", "+3-13800138000", "Abcd12324") || 2
+        getUserInfo(null, null, null, null) | getUserInfo("c3", "c3", "c3", "Abcd1234") || 3
     }
 
     def "query users"() {
@@ -93,8 +112,6 @@ class UserServiceTest extends Specification {
         then:
         resp.status == User.UserServiceType.USER_QUERY_STATUS_SUCCESS
         resp.getUsersCount() == 2
-
-        channel.shutdownNow()
     }
 
     def getUserInfo(String username, String email, String phone, String pass) {

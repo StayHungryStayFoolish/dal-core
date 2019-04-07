@@ -15,10 +15,14 @@ data class Admin (
         @Column(nullable = false, updatable = false)
         var userRoleId: Long,
         var status: Int,
-        @Column(length = Constants.VARCHAR_SHORT)
+        @Column(length = Constants.VARCHAR_SHORT, unique = true)
         var phone: String,
-        @Column(length = Constants.VARCHAR_SUPER_LONG)
+        @Column(length = Constants.VARCHAR_SUPER_LONG, unique = true)
         var email: String,
+        @Column(length = Constants.VARCHAR_NORMAL, unique = true)
+        var username: String? = null,
+        @Column(length = Constants.VARCHAR_PASSWORD_HASH)
+        var passwordHash: String? = null,
         var createAt: Long,
         var updateAt: Long
 )
