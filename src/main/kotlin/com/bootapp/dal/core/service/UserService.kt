@@ -50,7 +50,7 @@ class UserService(@Autowired
                 resp.status = User.UserServiceType.USER_CREATE_STATUS_SUCCESS
                 resp.user = dbUser.toProto()
             }
-        } catch (e : Exception) {
+        } catch (e: Throwable) {
             logger.error(e.toString())
             resp.status = User.UserServiceType.USER_CREATE_STATUS_FAIL
         } finally {
@@ -59,7 +59,7 @@ class UserService(@Autowired
         }
     }
 
-    override fun invokeUpdateUser(request: User.UserInfo?, responseObserver: StreamObserver<User.UserQueryResp>?) {
+    override fun invokeUpdateUserById(request: User.UserInfo?, responseObserver: StreamObserver<User.UserQueryResp>?) {
         val resp = User.UserQueryResp.newBuilder()
         try {
             val dbUser = request?.id?.let { userRepository.findById(it).orElse(null) }
@@ -68,6 +68,7 @@ class UserService(@Autowired
                 if (request.password != "") {
                     dbUser.passwordHash = BCrypt.hashpw(request.password, BCrypt.gensalt())
                 }
+                userRepository.save(dbUser)
                 resp.status = User.UserServiceType.USER_UPDATE_STATUS_SUCCESS
                 resp.user = dbUser.toProto()
             } else {
@@ -84,10 +85,10 @@ class UserService(@Autowired
         }
     }
 
-    override fun queryUser(request: User.UserQueryReq?, responseObserver: StreamObserver<User.UserQueryResp>?) {
+    override fun queryUser(request: User.UserInfo?, responseObserver: StreamObserver<User.UserQueryResp>?) {
         val resp = User.UserQueryResp.newBuilder()
         try {
-            val dbUser = DBUser();request?.user?.let { dbUser.fromProto(it) }
+            val dbUser = DBUser();request?.let { dbUser.fromProto(it) }
             val userDsl = QUser.user; var queryExpressions : BooleanExpression? = null
 
             if (dbUser.id != null && dbUser.id != 0L) {
@@ -99,7 +100,7 @@ class UserService(@Autowired
             }
 
             val res = userRepository.findOne(queryExpressions!!).get()
-            if (request?.user?.password == "" || BCrypt.checkpw(request?.user?.password, res.passwordHash)) {
+            if (request?.password == "" || BCrypt.checkpw(request?.password, res.passwordHash)) {
                 resp.status = User.UserServiceType.USER_QUERY_STATUS_SUCCESS
                 resp.user = res.toProto()
             } else {
@@ -121,9 +122,9 @@ class UserService(@Autowired
             val dbUser = DBUser();request?.user?.let { dbUser.fromProto(it) }
             val userDsl = QUser.user; var queryExpressions : BooleanExpression? = null
 
-            dbUser.username?.let { queryExpressions = (userDsl.username.like("%" + dbUser.username)).or(queryExpressions) }
-            dbUser.email?.let { queryExpressions = (userDsl.email.like("%" + dbUser.email)).or(queryExpressions) }
-            dbUser.phone?.let { queryExpressions = (userDsl.phone.like("%" + dbUser.phone)).or(queryExpressions) }
+            dbUser.username?.let { queryExpressions = (userDsl.username.like(dbUser.username + "%" )).or(queryExpressions) }
+            dbUser.email?.let { queryExpressions = (userDsl.email.like(dbUser.email + "%")).or(queryExpressions) }
+            dbUser.phone?.let { queryExpressions = (userDsl.phone.like(dbUser.phone + "%")).or(queryExpressions) }
 
             val res = userRepository.findAll(
                     userDsl.id.gt(request?.offsetId ?: 0).and(queryExpressions),

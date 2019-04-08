@@ -35,17 +35,26 @@ class UserServiceTest extends Specification {
             sharedSetupDone = true
         }
     }
-    def "basic creation of a user"() {
+    def getUserInfo(String username, String email, String phone, String pass) {
+        def user = User.UserInfo.newBuilder()
+        if(username != null) user.setUsername(username)
+        if(email != null) user.setEmail(email)
+        if(phone != null) user.setPhone(phone)
+        if(pass != null) user.setPassword(pass)
+        return user.build()
+    }
+
+    def "InvokeNewUser.1 basic creation of a user"() {
         given: "create a user"
         def user = User.UserInfo.newBuilder().build()
         def userCreateResp = blockingStub.invokeNewUser(user)
-        def userResp = blockingStub.queryUser(User.UserQueryReq.newBuilder()
-                .setUser(User.UserInfo.newBuilder().setId(userCreateResp.user.id).build()).build())
+        def userResp = blockingStub.queryUser(User.UserInfo.newBuilder().setId(userCreateResp.user.id).build())
         expect: "the created user exists"
-        userResp.status == User.UserServiceType.USER_QUERY_STATUS_SUCCESS
-        userResp.user.id == userCreateResp.user.id
+        userResp.status == User.UserServiceType.USER_QUERY_STATUS_SUCCESS && userResp.user.id == userCreateResp.user.id
+        cleanup:
+        userRepository.deleteAll()
     }
-    def "the username & email & phone should be all unique"() {
+    def "InvokeNewUser.2 the username & email & phone should be all unique"() {
         when:
         def userCreateResp = blockingStub.invokeNewUser(userReq)
         then:
@@ -61,10 +70,10 @@ class UserServiceTest extends Specification {
         getUserInfo(null,null,"+1-13800138000","Abcd1234")    || false
 
     }
-    def "creating users by username/phone/email"() {
+    def "QueryUser.1 querying a user by username/phone/email"() {
         when:
         def userCreateResp = blockingStub.invokeNewUser(user)
-        def userResp = blockingStub.queryUser(User.UserQueryReq.newBuilder().setUser(userReq).build())
+        def userResp = blockingStub.queryUser(userReq)
         then: "the result user's id should be the same"
         userResp.status == User.UserServiceType.USER_QUERY_STATUS_SUCCESS &&
                 userResp.user.id == userCreateResp.user.id
@@ -75,10 +84,10 @@ class UserServiceTest extends Specification {
         getUserInfo(null,null,"+2-13800138000",null) | getUserInfo(null,null,"+2-13800138000",null)
     }
 
-    def "creating users by username/phone/email & pass"() {
+    def "QueryUser.2 querying a user by username/phone/email & pass"() {
         when:
-        def userCreateResp = blockingStub.invokeNewUser(user)
-        def userResp = blockingStub.queryUser(User.UserQueryReq.newBuilder().setUser(userReq).build())
+        blockingStub.invokeNewUser(user)
+        def userResp = blockingStub.queryUser(userReq)
         then:
         (type == 1 && userResp.status == User.UserServiceType.USER_QUERY_STATUS_SUCCESS) ||
                 (type == 2 && userResp.status == User.UserServiceType.USER_QUERY_STATUS_WRONG_PASS) ||
@@ -100,27 +109,61 @@ class UserServiceTest extends Specification {
         getUserInfo(null, null, null, null) | getUserInfo("c3", "c3", "c3", "Abcd1234") || 3
     }
 
-    def "query users"() {
+    def "QueryUsers.1 offset&limit test"() {
         given:
-        when:
-        for(int i = 0; i < 15; i++)
-            blockingStub.invokeNewUser(User.UserInfo.newBuilder().build())
         User.UserQueryResp resp2 = blockingStub.invokeNewUser(User.UserInfo.newBuilder().build())
         for(int i = 0; i < 2; i++)
             blockingStub.invokeNewUser(User.UserInfo.newBuilder().build())
         User.UsersQueryResp resp = blockingStub.queryUsers(User.UsersQueryReq.newBuilder().setOffsetId(resp2.user.id).build())
+        expect:
+        resp.status == User.UserServiceType.USER_QUERY_STATUS_SUCCESS && resp.getUsersCount() == 2
+        cleanup:
+        userRepository.deleteAll()
+        for (int i = 0; i < 5; i++) {
+            blockingStub.invokeNewUser(getUserInfo(String.format("test%d", i), null, null, null))
+            blockingStub.invokeNewUser(getUserInfo(null, String.format("test%d@abc.com", i), null, null))
+            blockingStub.invokeNewUser(getUserInfo(null, null, String.format("test%d", i), null))
+        }
+    }
+    def "QueryUsers.2 like query"() {
+        when:
+        def resp1 = blockingStub.queryUsers(User.UsersQueryReq.newBuilder().setUser(user).build())
         then:
-        resp.status == User.UserServiceType.USER_QUERY_STATUS_SUCCESS
-        resp.getUsersCount() == 2
+        resp1.status == User.UserServiceType.USER_QUERY_STATUS_SUCCESS && resp1.usersCount == count
+        where:
+        user                                   || count
+        getUserInfo("test", null, null, null)  || 5
+        getUserInfo("test2", null, null, null) || 1
+        getUserInfo("testa", null, null, null) || 0
+        getUserInfo(null, "test", null, null)  || 5
+        getUserInfo(null, "test2", null, null) || 1
+        getUserInfo(null, "testa", null, null) || 0
+        getUserInfo(null, null, "test", null)  || 5
+        getUserInfo(null, null, "test2", null) || 1
+        getUserInfo(null, null, "testa", null) || 0
+        getUserInfo("test", null, "test", null) || 10
+        getUserInfo("test", "test", "test", null) || 10
     }
 
-    def getUserInfo(String username, String email, String phone, String pass) {
-        def user = User.UserInfo.newBuilder()
-        if(username != null) user.setUsername(username)
-        if(email != null) user.setEmail(email)
-        if(phone != null) user.setPhone(phone)
-        if(pass != null) user.setPassword(pass)
-        return user.build()
+    def "InvokeUpdateUser.1 update user info by id"() {
+        given:
+        def resp1 = blockingStub.invokeNewUser(User.UserInfo.newBuilder().build())
+        def userInfo = User.UserInfo.newBuilder().setId(resp1.user.id).setUsername("d0").setEmail("d1@test.com").setPhone("+86-13800138000").setPassword("test1234").build()
+        blockingStub.invokeUpdateUserById(userInfo)
+        def resp2 = blockingStub.queryUser(User.UserInfo.newBuilder().setId(resp1.user.id).build())
+        def resp3 = blockingStub.queryUser(User.UserInfo.newBuilder().setEmail("d1@test.com").setPassword("test1234").build())
+        expect:
+        resp2.status == User.UserServiceType.USER_QUERY_STATUS_SUCCESS
+        resp2.user.username == userInfo.username
+        resp2.user.email == userInfo.email
+        resp2.user.phone == userInfo.phone
+        resp2.user.id == userInfo.id
+        resp3.status == User.UserServiceType.USER_QUERY_STATUS_SUCCESS
+        cleanup:
+        userRepository.deleteAll()
+    }
+    def "InvokeDelInactiveUsers"() {
+
     }
 
 }
