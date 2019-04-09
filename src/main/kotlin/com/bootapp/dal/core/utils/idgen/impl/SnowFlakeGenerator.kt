@@ -8,7 +8,6 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import javax.transaction.Transactional
 
-@Component
 @Transactional
 class SnowFlakeGenerator(@Autowired private val genRepository: IDGenInstanceRepository) : IDGenerator() {
     companion object {

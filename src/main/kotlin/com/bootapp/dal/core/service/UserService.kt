@@ -1,9 +1,9 @@
 package com.bootapp.dal.core.service
 import com.bootapp.dal.core.domain.QUser
+import com.bootapp.dal.core.grpc.DalCoreUserServiceGrpc
 import io.grpc.stub.StreamObserver
 import com.bootapp.dal.core.grpc.User
 import com.bootapp.dal.core.domain.User as DBUser
-import com.bootapp.dal.core.grpc.UserServiceGrpc
 import com.bootapp.dal.core.repository.UserRepository
 import com.bootapp.dal.core.utils.ChunkRequest
 import com.bootapp.dal.core.utils.idgen.IDGenerator
@@ -19,7 +19,7 @@ class UserService(@Autowired
                   private val userRepository: UserRepository,
                   @Autowired
                   private val idGenerator: IDGenerator)
-    : UserServiceGrpc.UserServiceImplBase() {
+    : DalCoreUserServiceGrpc.DalCoreUserServiceImplBase() {
 
     var logger = LoggerFactory.getLogger(this.javaClass)!!
 

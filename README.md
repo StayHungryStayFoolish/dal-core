@@ -13,7 +13,7 @@ Download the [protos](https://github.com/bootapp/protos) repository and put it i
 * Spock for unit test
 
 ### Contents
-* a Lock and a CAS implementations of SnowFlake
+* A lock and a CAS implementation of SnowFlake
 * Data access techniques
 * Contract programming & test-driven programming
 

@@ -1,7 +1,7 @@
 package com.bootapp.dal.core.service
 
+import com.bootapp.dal.core.grpc.DalCoreUserServiceGrpc
 import com.bootapp.dal.core.grpc.User
-import com.bootapp.dal.core.grpc.UserServiceGrpc
 import com.bootapp.dal.core.repository.IDGenInstanceRepository
 import com.bootapp.dal.core.repository.UserRepository
 import com.bootapp.dal.core.utils.idgen.impl.SnowFlakeGenerator
@@ -26,12 +26,12 @@ class UserServiceTest extends Specification {
     @Shared
     boolean sharedSetupDone = false
     @Shared
-    UserServiceGrpc.UserServiceBlockingStub blockingStub
+    DalCoreUserServiceGrpc.DalCoreUserServiceBlockingStub blockingStub
     def setup() {
         if (!sharedSetupDone) {
             InProcessServerBuilder.forName(serverName).directExecutor().addService(new UserService(userRepository, new SnowFlakeGenerator(repository))).build().start()
             def channel = InProcessChannelBuilder.forName(serverName).directExecutor().build()
-            blockingStub = UserServiceGrpc.newBlockingStub(channel)
+            blockingStub = DalCoreUserServiceGrpc.newBlockingStub(channel)
             sharedSetupDone = true
         }
     }
@@ -145,7 +145,7 @@ class UserServiceTest extends Specification {
         getUserInfo("test", "test", "test", null) || 10
     }
 
-    def "InvokeUpdateUser.1 update user info by id"() {
+    def "InvokeUpdateUserById.1 update user info by id"() {
         given:
         def resp1 = blockingStub.invokeNewUser(User.UserInfo.newBuilder().build())
         def userInfo = User.UserInfo.newBuilder().setId(resp1.user.id).setUsername("d0").setEmail("d1@test.com").setPhone("+86-13800138000").setPassword("test1234").build()

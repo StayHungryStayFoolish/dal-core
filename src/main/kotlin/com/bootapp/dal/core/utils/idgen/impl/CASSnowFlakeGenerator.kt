@@ -17,6 +17,8 @@ Thread num,   nonCAS v.s CAS
 100  thread: QPS: 3118623 v.s 3479442;  avgTime(ms):  0.02729554 v.s. 0.009070220
 1000 thread: QPS: 3249761 v.s 2363258;  avgTime(ms):  0.20897113 v.s. 0.010685175
 */
+
+@Component
 @Transactional
 class CASSnowFlakeGenerator(@Autowired private val genRepository: IDGenInstanceRepository) : IDGenerator() {
     companion object {
