@@ -42,15 +42,15 @@ data class User (
         proto.updateAt = this.updateAt ?: 0
         return proto.buildPartial()
     }
-    fun fromProto(info :User.UserInfo) {
-        if (info.id != 0L) id = info.id
-        if (info.statusValue != 0) status = info.statusValue
-        if (info.userRoleId != 0L) userRoleId = info.userRoleId
-        if (info.phone != "") phone = info.phone
-        if (info.email != "") email = info.email
-        if (info.username != "") username = info.username
-        if (info.createAt != 0L) createAt = info.createAt
-        if (info.updateAt != 0L) updateAt = info.updateAt
+    fun fromProto(item :User.UserInfo) {
+        if (item.id != 0L) id = item.id
+        if (item.statusValue != 0) status = item.statusValue
+        if (item.userRoleId != 0L) userRoleId = item.userRoleId
+        if (item.phone != "") phone = item.phone
+        if (item.email != "") email = item.email
+        if (item.username != "") username = item.username
+        if (item.createAt != 0L) createAt = item.createAt
+        if (item.updateAt != 0L) updateAt = item.updateAt
     }
 }
 

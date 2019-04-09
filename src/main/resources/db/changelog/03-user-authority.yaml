@@ -7,17 +7,17 @@ databaseChangeLog:
             tableName: user_authorities
             columns:
               - column:
-                  name: index_key
+                  name: user_auth_key
                   type: VARCHAR(50)
                   constraints:
                     - primaryKey: true
                     - nullable: false
                     - updatable: false
               - column:
-                  name: binary_value
+                  name: user_auth_value
                   type: BigInt
               - column:
-                  name: org_authority_key
+                  name: org_auth_key
                   type: VARCHAR(50)
                   constraints:
                     - nullable: false

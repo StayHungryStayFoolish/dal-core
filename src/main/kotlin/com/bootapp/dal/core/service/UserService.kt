@@ -7,6 +7,7 @@ import com.bootapp.dal.core.domain.User as DBUser
 import com.bootapp.dal.core.repository.UserRepository
 import com.bootapp.dal.core.utils.ChunkRequest
 import com.bootapp.dal.core.utils.idgen.IDGenerator
+import com.google.protobuf.Empty
 import com.querydsl.core.types.dsl.BooleanExpression
 import org.lognet.springboot.grpc.GRpcService
 import org.mindrot.jbcrypt.BCrypt
@@ -140,5 +141,9 @@ class UserService(@Autowired
             responseObserver?.onNext(resp.build())
             responseObserver?.onCompleted()
         }
+    }
+
+    override fun invokeDelInactiveUsers(request: Empty?, responseObserver: StreamObserver<User.UserQueryResp>?) {
+        super.invokeDelInactiveUsers(request, responseObserver)
     }
 }
