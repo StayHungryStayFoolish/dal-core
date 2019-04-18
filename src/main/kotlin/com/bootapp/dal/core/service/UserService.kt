@@ -52,7 +52,7 @@ class UserService(@Autowired
                 resp.user = dbUser.toProto()
             }
         } catch (e: DataIntegrityViolationException) {
-            resp.status = User.UserServiceType.NEW_USER_DUPLICATE_ENTRY
+            resp.status = User.UserServiceType.NEW_USER_ERR_DUPLICATE_ENTRY
             resp.message = "duplicate entry"
         }
         catch (e: Throwable) {
@@ -110,7 +110,7 @@ class UserService(@Autowired
                 resp.status = User.UserServiceType.RESP_SUCCESS
                 resp.user = res.toProto()
             } else {
-                resp.status = User.UserServiceType.QUERY_USER_WRONG_PASS
+                resp.status = User.UserServiceType.QUERY_USER_ERR_WRONG_PASS
                 resp.message = "wrong password"
             }
 
