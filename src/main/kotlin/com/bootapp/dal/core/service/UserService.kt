@@ -13,6 +13,7 @@ import org.lognet.springboot.grpc.GRpcService
 import org.mindrot.jbcrypt.BCrypt
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.dao.DataIntegrityViolationException
 import java.lang.Exception
 
 @GRpcService
@@ -37,8 +38,7 @@ class UserService(@Autowired
             }
             if (dbUser.id == 0L) {
                 logger.error("the new user's id is zero")
-                resp.status = User.UserServiceType.USER_CREATE_STATUS_FAIL
-                resp.message = "user id could not be 0"
+                throw Exception("user id could not be 0")
             } else {
                 //------------ fill other data
                 dbUser.fromProto(request)
@@ -48,12 +48,17 @@ class UserService(@Autowired
                 //------------ fill information
                 userRepository.save(dbUser)
                 logger.info("new user saved to db with id: {}", dbUser.id)
-                resp.status = User.UserServiceType.USER_CREATE_STATUS_SUCCESS
+                resp.status = User.UserServiceType.RESP_SUCCESS
                 resp.user = dbUser.toProto()
             }
-        } catch (e: Throwable) {
+        } catch (e: DataIntegrityViolationException) {
+            resp.status = User.UserServiceType.NEW_USER_DUPLICATE_ENTRY
+            resp.message = "duplicate entry"
+        }
+        catch (e: Throwable) {
             logger.error(e.toString())
-            resp.status = User.UserServiceType.USER_CREATE_STATUS_FAIL
+            resp.status = User.UserServiceType.RESP_FAIL
+            resp.message = e.message
         } finally {
             responseObserver?.onNext(resp.build())
             responseObserver?.onCompleted()
@@ -70,16 +75,16 @@ class UserService(@Autowired
                     dbUser.passwordHash = BCrypt.hashpw(request.password, BCrypt.gensalt())
                 }
                 userRepository.save(dbUser)
-                resp.status = User.UserServiceType.USER_UPDATE_STATUS_SUCCESS
+                resp.status = User.UserServiceType.RESP_SUCCESS
                 resp.user = dbUser.toProto()
             } else {
-                resp.status = User.UserServiceType.USER_UPDATE_STATUS_FAIL
-                resp.message = "user not found"
                 logger.error("user not found: {}", request?.id ?: 0)
+                throw Exception("user not found")
             }
         } catch (e : Exception) {
             logger.error(e.toString())
-            resp.status = User.UserServiceType.USER_UPDATE_STATUS_FAIL
+            resp.status = User.UserServiceType.RESP_FAIL
+            resp.message = e.message
         } finally {
             responseObserver?.onNext(resp.build())
             responseObserver?.onCompleted()
@@ -102,15 +107,17 @@ class UserService(@Autowired
 
             val res = userRepository.findOne(queryExpressions!!).get()
             if (request?.password == "" || BCrypt.checkpw(request?.password, res.passwordHash)) {
-                resp.status = User.UserServiceType.USER_QUERY_STATUS_SUCCESS
+                resp.status = User.UserServiceType.RESP_SUCCESS
                 resp.user = res.toProto()
             } else {
-                resp.status = User.UserServiceType.USER_QUERY_STATUS_WRONG_PASS
+                resp.status = User.UserServiceType.QUERY_USER_WRONG_PASS
+                resp.message = "wrong password"
             }
 
         } catch (e: Exception) {
             logger.error(e.toString())
-            resp.status = User.UserServiceType.USER_QUERY_STATUS_FAIL
+            resp.status = User.UserServiceType.RESP_FAIL
+            resp.message = e.message
         } finally {
             responseObserver?.onNext(resp.build())
             responseObserver?.onCompleted()
@@ -133,10 +140,11 @@ class UserService(@Autowired
             )
 
             res.forEach { resp.addUsers(it.toProto()) }
-            resp.status = User.UserServiceType.USER_QUERY_STATUS_SUCCESS
+            resp.status = User.UserServiceType.RESP_SUCCESS
         } catch (e: Exception) {
             logger.error(e.toString())
-            resp.status = User.UserServiceType.USER_QUERY_STATUS_FAIL
+            resp.status = User.UserServiceType.RESP_FAIL
+            resp.message = e.message
         } finally {
             responseObserver?.onNext(resp.build())
             responseObserver?.onCompleted()
